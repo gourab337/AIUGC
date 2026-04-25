@@ -2,28 +2,35 @@ import { create } from 'zustand';
 import type { AIModel, GenerationJob, WorkflowStep } from '../types';
 
 interface StudioState {
-  activeStep: WorkflowStep;
   models: Record<WorkflowStep, AIModel[]>;
   selectedModels: Record<WorkflowStep, string>;
   jobs: GenerationJob[];
   wsConnected: boolean;
 
-  setActiveStep: (step: WorkflowStep) => void;
+  // Cross-step data passing
+  pendingVoiceText: string;
+  pendingVideoImageUrl: string;
+  pendingVideoAudioUrl: string;
+
   setModels: (type: WorkflowStep, models: AIModel[]) => void;
   setSelectedModel: (type: WorkflowStep, modelId: string) => void;
   addOrUpdateJob: (job: GenerationJob) => void;
   setJobs: (jobs: GenerationJob[]) => void;
   setWsConnected: (v: boolean) => void;
+  setPendingVoiceText: (text: string) => void;
+  setPendingVideoImageUrl: (url: string) => void;
+  setPendingVideoAudioUrl: (url: string) => void;
 }
 
 export const useStudioStore = create<StudioState>((set) => ({
-  activeStep: 'script',
   models: { script: [], image: [], voice: [], video: [] },
   selectedModels: { script: '', image: '', voice: '', video: '' },
   jobs: [],
   wsConnected: false,
+  pendingVoiceText: '',
+  pendingVideoImageUrl: '',
+  pendingVideoAudioUrl: '',
 
-  setActiveStep: (step) => set({ activeStep: step }),
   setModels: (type, models) => set(s => ({ models: { ...s.models, [type]: models } })),
   setSelectedModel: (type, modelId) =>
     set(s => ({ selectedModels: { ...s.selectedModels, [type]: modelId } })),
@@ -39,4 +46,7 @@ export const useStudioStore = create<StudioState>((set) => ({
     }),
   setJobs: (jobs) => set({ jobs }),
   setWsConnected: (v) => set({ wsConnected: v }),
+  setPendingVoiceText: (text) => set({ pendingVoiceText: text }),
+  setPendingVideoImageUrl: (url) => set({ pendingVideoImageUrl: url }),
+  setPendingVideoAudioUrl: (url) => set({ pendingVideoAudioUrl: url }),
 }));

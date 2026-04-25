@@ -14,7 +14,6 @@ router.post('/generate', async (req, res) => {
   const job = createJob('voice', body.modelId, {
     ...body,
     speed: body.speed || 1.0,
-    pitch: body.pitch || 1.0,
     voiceId: body.voiceId || 'default',
   });
   processJob(job.id).catch(console.error);

@@ -1,4 +1,5 @@
-export type ModelProvider = 'local' | 'openai' | 'anthropic' | 'replicate' | 'stability' | 'elevenlabs';
+export type ModelProvider = 'local' | 'openai' | 'anthropic' | 'google' | 'replicate' | 'stability' | 'elevenlabs' | 'runway' | 'blackforestlabs' | 'midjourney' | 'fishaudio' | 'inworld' | 'xai' | 'bytedance' | 'mistral' | 'ideogram';
+export type ModelQuality = 'highest' | 'very-high' | 'high';
 
 export interface AIModel {
   id: string;
@@ -7,6 +8,9 @@ export interface AIModel {
   type: 'script' | 'image' | 'voice' | 'video';
   description: string;
   available: boolean;
+  quality: ModelQuality;
+  pricing?: string;
+  tags?: string[];
 }
 
 export interface GenerationJob {
@@ -22,27 +26,21 @@ export interface GenerationJob {
   error?: string;
 }
 
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  jobs: GenerationJob[];
-  thumbnail?: string;
-}
-
 export interface ScriptGenerationInput {
   prompt: string;
   tone: 'professional' | 'casual' | 'energetic' | 'cinematic';
-  duration: number;
   platform: 'tiktok' | 'instagram' | 'youtube' | 'twitter';
+  audience?: string;
+  hookStyle?: string;
+  ctaStyle?: string;
+  duration: number;
   modelId: string;
 }
 
 export interface ImageGenerationInput {
   prompt: string;
   negativePrompt?: string;
+  style?: string;
   width: number;
   height: number;
   steps: number;
@@ -53,7 +51,7 @@ export interface VoiceGenerationInput {
   text: string;
   voiceId: string;
   speed: number;
-  pitch: number;
+  emotion?: string;
   modelId: string;
 }
 
@@ -61,6 +59,8 @@ export interface VideoGenerationInput {
   prompt: string;
   imageUrl?: string;
   audioUrl?: string;
+  cameraMotion?: string;
+  style?: string;
   duration: number;
   fps: number;
   modelId: string;

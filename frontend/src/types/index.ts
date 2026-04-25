@@ -1,4 +1,5 @@
-export type ModelProvider = 'local' | 'openai' | 'anthropic' | 'replicate' | 'stability' | 'elevenlabs';
+export type ModelProvider = 'local' | 'openai' | 'anthropic' | 'google' | 'replicate' | 'stability' | 'elevenlabs' | 'runway' | 'blackforestlabs' | 'midjourney' | 'fishaudio' | 'inworld' | 'xai' | 'bytedance' | 'mistral' | 'ideogram';
+export type ModelQuality = 'highest' | 'very-high' | 'high';
 export type WorkflowStep = 'script' | 'image' | 'voice' | 'video';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed';
 
@@ -9,6 +10,9 @@ export interface AIModel {
   type: WorkflowStep;
   description: string;
   available: boolean;
+  quality: ModelQuality;
+  pricing?: string;
+  tags?: string[];
 }
 
 export interface GenerationJob {
