@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg-base: #070708;
+  --bg-surface: #0e0e10;
+  --bg-elevated: #141416;
+  --bg-hover: #1a1a1d;
+  --border: #222226;
+  --border-bright: #333338;
+  --amber: #e8920a;
+  --amber-dim: #a8660a;
+  --amber-glow: rgba(232, 146, 10, 0.15);
+  --cyan: #00c8e0;
+  --cyan-glow: rgba(0, 200, 224, 0.12);
+  --text-primary: #f0ede8;
+  --text-secondary: #8a8a95;
+  --text-muted: #4a4a55;
+  --red: #ff4455;
+  --green: #2ecc71;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Syne', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-surface); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--amber-dim); }
+
+@keyframes pulse-amber {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.pulse-amber { animation: pulse-amber 1.5s ease-in-out infinite; }
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.slide-in { animation: slide-in 0.25s ease-out forwards; }
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #141416 25%, #1a1a1d 50%, #141416 75%);
+  background-size: 200% auto;
+  animation: shimmer 1.5s linear infinite;
+  border-radius: 4px;
+}
+
+@keyframes progress-stripe {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 0; }
+}
+.progress-stripe {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 8px,
+    rgba(255,255,255,0.04) 8px,
+    rgba(255,255,255,0.04) 16px
+  );
+  animation: progress-stripe 0.6s linear infinite;
+}
