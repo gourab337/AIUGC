@@ -29,6 +29,25 @@ const TIMELINE_FRAMES = 20;
 export function VideoGen() {
   const { selectedModels, addOrUpdateJob, pendingVideoImageUrl, pendingVideoAudioUrl, setPendingVideoImageUrl, setPendingVideoAudioUrl } = useStudioStore();
   const jobs = useJobsByType('video');
+  const imageJobs = useJobsByType('image');
+  const voiceJobs = useJobsByType('voice');
+
+  const imageOptions = imageJobs
+    .filter(j => j.status === 'completed')
+    .flatMap(j => {
+      const urls = (j.output?.imageUrls as string[] | undefined)
+        ?? (j.output?.imageUrl ? [j.output.imageUrl as string] : []);
+      const time = new Date(j.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return urls.map((url, i) => ({ url, label: `${time} — v${i + 1}` }));
+    });
+
+  const audioOptions = voiceJobs
+    .filter(j => j.status === 'completed' && j.output?.audioUrl)
+    .map(j => {
+      const voice = (j.input?.voiceId as string | undefined) ?? 'voice';
+      const time = new Date(j.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return { url: j.output!.audioUrl as string, label: `${voice} — ${time}` };
+    });
 
   const [prompt, setPrompt] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -41,7 +60,7 @@ export function VideoGen() {
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [playProgress, setPlayProgress] = useState(0);
-  const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const latestJob = jobs[0];
   const showOutput = latestJob && (latestJob.status === 'completed' || latestJob.status === 'processing');
@@ -54,20 +73,27 @@ export function VideoGen() {
     if (pendingVideoAudioUrl) { setAudioUrl(pendingVideoAudioUrl); setPendingVideoAudioUrl(''); }
   }, [pendingVideoAudioUrl, setPendingVideoAudioUrl]);
 
-  // Fake playback
+  const videoUrl = latestJob?.output?.videoUrl as string | undefined;
+
+  // Wire real video playback
   useEffect(() => {
-    if (playing) {
-      playRef.current = setInterval(() => {
-        setPlayProgress(p => {
-          if (p >= 1) { setPlaying(false); clearInterval(playRef.current!); return 0; }
-          return p + (1 / (duration * 20));
-        });
-      }, 50);
-    } else {
-      if (playRef.current) clearInterval(playRef.current);
-    }
-    return () => { if (playRef.current) clearInterval(playRef.current); };
-  }, [playing, duration]);
+    const video = videoRef.current;
+    if (!video) return;
+    const onTimeUpdate = () => { if (video.duration) setPlayProgress(video.currentTime / video.duration); };
+    const onEnded = () => { setPlaying(false); setPlayProgress(1); };
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('ended', onEnded);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    return () => {
+      video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('ended', onEnded);
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('pause', onPause);
+    };
+  }, [videoUrl]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return toast.error('Enter a video prompt first');
@@ -86,9 +112,14 @@ export function VideoGen() {
   };
 
   const togglePlay = () => {
-    if (!showOutput) return;
-    if (playProgress >= 1) setPlayProgress(0);
-    setPlaying(p => !p);
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      if (playProgress >= 1) video.currentTime = 0;
+      video.play().catch(console.error);
+    } else {
+      video.pause();
+    }
   };
 
   const formatTime = (frac: number) => {
@@ -129,40 +160,91 @@ export function VideoGen() {
             />
           </div>
 
-          {/* Image input */}
+          {/* Image picker */}
           <div>
-            <label className="block mb-2 text-xs uppercase tracking-widest" style={{ fontFamily: 'JetBrains Mono', color: 'var(--text-muted)' }}>
-              Image-to-Video <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
-            </label>
-            <div className="relative">
-              <ImageIcon size={11} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-              <input type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)}
-                placeholder="Paste image URL or use ← from Image Gen…"
-                className="w-full rounded border outline-none pl-8 pr-3 py-2 text-xs transition-colors"
-                style={{ background: imageUrl ? 'rgba(52,211,153,0.05)' : 'var(--bg-elevated)', borderColor: imageUrl ? '#34d399' : 'var(--border)', color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono' }}
-                onFocus={e => (e.target.style.borderColor = '#34d399')}
-                onBlur={e => (e.target.style.borderColor = imageUrl ? '#34d399' : 'var(--border)')}
-              />
-              {imageUrl && <button onClick={() => setImageUrl('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--text-muted)' }}>✕</button>}
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs uppercase tracking-widest" style={{ fontFamily: 'JetBrains Mono', color: 'var(--text-muted)' }}>
+                Image-to-Video <span style={{ fontWeight: 400 }}>(optional)</span>
+              </label>
+              {imageUrl && (
+                <button onClick={() => setImageUrl('')} style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)' }}>
+                  clear ✕
+                </button>
+              )}
             </div>
+            <div className="relative">
+              <ImageIcon size={11} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: imageUrl ? '#34d399' : 'var(--text-muted)', zIndex: 1 }} />
+              <select
+                value={imageUrl}
+                onChange={e => setImageUrl(e.target.value)}
+                className="w-full rounded border outline-none pl-8 pr-3 py-2 text-xs appearance-none"
+                style={{
+                  background: imageUrl ? 'rgba(52,211,153,0.05)' : 'var(--bg-elevated)',
+                  borderColor: imageUrl ? '#34d399' : 'var(--border)',
+                  color: imageUrl ? '#34d399' : 'var(--text-muted)',
+                  fontFamily: 'JetBrains Mono',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">— none —</option>
+                {imageOptions.map(opt => (
+                  <option key={opt.url} value={opt.url} style={{ color: 'var(--text-primary)', background: 'var(--bg-elevated)' }}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {imageUrl && (
+              <div className="mt-2 rounded overflow-hidden border" style={{ borderColor: 'rgba(52,211,153,0.2)', maxHeight: 120 }}>
+                <img src={imageUrl} alt="Selected" className="w-full h-full object-cover" style={{ maxHeight: 120 }} />
+              </div>
+            )}
+            {!imageUrl && imageOptions.length === 0 && (
+              <p style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)', marginTop: 5 }}>
+                Generate images in Image Gen first
+              </p>
+            )}
           </div>
 
-          {/* Audio input */}
+          {/* Audio picker */}
           <div>
-            <label className="block mb-2 text-xs uppercase tracking-widest" style={{ fontFamily: 'JetBrains Mono', color: 'var(--text-muted)' }}>
-              Audio Track <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
-            </label>
-            <div className="relative">
-              <Mic size={11} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-              <input type="text" value={audioUrl} onChange={e => setAudioUrl(e.target.value)}
-                placeholder="Paste audio URL or use ← from Voice Gen…"
-                className="w-full rounded border outline-none pl-8 pr-3 py-2 text-xs transition-colors"
-                style={{ background: audioUrl ? 'rgba(167,139,250,0.05)' : 'var(--bg-elevated)', borderColor: audioUrl ? '#a78bfa' : 'var(--border)', color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono' }}
-                onFocus={e => (e.target.style.borderColor = '#a78bfa')}
-                onBlur={e => (e.target.style.borderColor = audioUrl ? '#a78bfa' : 'var(--border)')}
-              />
-              {audioUrl && <button onClick={() => setAudioUrl('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--text-muted)' }}>✕</button>}
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs uppercase tracking-widest" style={{ fontFamily: 'JetBrains Mono', color: 'var(--text-muted)' }}>
+                Audio Track <span style={{ fontWeight: 400 }}>(optional)</span>
+              </label>
+              {audioUrl && (
+                <button onClick={() => setAudioUrl('')} style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)' }}>
+                  clear ✕
+                </button>
+              )}
             </div>
+            <div className="relative">
+              <Mic size={11} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: audioUrl ? '#a78bfa' : 'var(--text-muted)', zIndex: 1 }} />
+              <select
+                value={audioUrl}
+                onChange={e => setAudioUrl(e.target.value)}
+                className="w-full rounded border outline-none pl-8 pr-3 py-2 text-xs appearance-none"
+                style={{
+                  background: audioUrl ? 'rgba(167,139,250,0.05)' : 'var(--bg-elevated)',
+                  borderColor: audioUrl ? '#a78bfa' : 'var(--border)',
+                  color: audioUrl ? '#a78bfa' : 'var(--text-muted)',
+                  fontFamily: 'JetBrains Mono',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">— none —</option>
+                {audioOptions.map(opt => (
+                  <option key={opt.url} value={opt.url} style={{ color: 'var(--text-primary)', background: 'var(--bg-elevated)' }}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {!audioUrl && audioOptions.length === 0 && (
+              <p style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)', marginTop: 5 }}>
+                Generate audio in Voice Gen first
+              </p>
+            )}
           </div>
 
           {/* Video style */}
@@ -312,19 +394,21 @@ export function VideoGen() {
                 {/* Video frame */}
                 <div
                   className="relative flex items-center justify-center"
-                  style={{ aspectRatio: isVertical ? '9/16' : ar.label === '1:1' ? '1/1' : '16/9', maxHeight: isVertical ? 420 : undefined, background: 'linear-gradient(135deg, #050505 0%, #0d1a0a 50%, #050505 100%)', cursor: 'pointer' }}
+                  style={{ aspectRatio: isVertical ? '9/16' : ar.label === '1:1' ? '1/1' : '16/9', maxHeight: isVertical ? 420 : undefined, background: '#050505', cursor: 'pointer' }}
                   onClick={togglePlay}
                 >
-                  {/* Simulated video content: animated gradient */}
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background: playing
-                        ? `linear-gradient(${playProgress * 360}deg, #0a0a02 0%, #1a1400 40%, #0d0a00 70%, #050500 100%)`
-                        : 'linear-gradient(135deg, #080808 0%, #0f0f00 50%, #080808 100%)',
-                      transition: 'background 0.5s',
-                    }}
-                  />
+                  {/* Real video or placeholder */}
+                  {videoUrl ? (
+                    <video
+                      ref={videoRef}
+                      src={videoUrl}
+                      className="absolute inset-0 w-full h-full object-contain"
+                      preload="metadata"
+                      playsInline
+                    />
+                  ) : (
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #080808 0%, #0f0f00 50%, #080808 100%)' }} />
+                  )}
 
                   {/* Film grain overlay */}
                   <div className="absolute inset-0" style={{ background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 4px)', pointerEvents: 'none' }} />
@@ -346,12 +430,6 @@ export function VideoGen() {
                     <span style={{ fontFamily: 'JetBrains Mono', fontSize: 8, color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.4)', padding: '2px 5px', borderRadius: 3 }}>{ar.label}</span>
                     <span style={{ fontFamily: 'JetBrains Mono', fontSize: 8, color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.4)', padding: '2px 5px', borderRadius: 3 }}>{fps}fps</span>
                   </div>
-
-                  {latestJob?.status === 'completed' && (
-                    <div className="absolute top-2 right-2">
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 8, color: 'var(--amber)', background: 'rgba(232,146,10,0.15)', padding: '2px 5px', borderRadius: 3, border: '1px solid rgba(232,146,10,0.3)' }}>stub</span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Timeline */}
@@ -365,7 +443,12 @@ export function VideoGen() {
                           background: (i / TIMELINE_FRAMES) < playProgress ? 'rgba(52,211,153,0.5)' : 'rgba(255,255,255,0.06)',
                           border: `1px solid ${(i / TIMELINE_FRAMES) < playProgress ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.04)'}`,
                         }}
-                        onClick={() => setPlayProgress(i / TIMELINE_FRAMES)}
+                        onClick={() => {
+                          const frac = i / TIMELINE_FRAMES;
+                          setPlayProgress(frac);
+                          const video = videoRef.current;
+                          if (video && video.duration) video.currentTime = frac * video.duration;
+                        }}
                       />
                     ))}
                   </div>
@@ -384,15 +467,17 @@ export function VideoGen() {
 
               {/* Actions */}
               <div className="flex gap-2">
-                <button onClick={() => toast('Download available with real model')}
+                <a
+                  href={videoUrl}
+                  download="video.mp4"
                   className="flex items-center gap-2 px-4 py-2 rounded border text-xs transition-all"
-                  style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--text-secondary)', fontFamily: 'Syne', fontWeight: 600 }}
+                  style={{ background: 'var(--bg-elevated)', borderColor: videoUrl ? 'var(--border)' : 'transparent', color: videoUrl ? 'var(--text-secondary)' : 'var(--text-muted)', fontFamily: 'Syne', fontWeight: 600, pointerEvents: videoUrl ? 'auto' : 'none', textDecoration: 'none' }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-bright)')}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                 >
                   <Download size={12} />
                   Export MP4
-                </button>
+                </a>
                 <button onClick={() => toast('Share link — available with real model')}
                   className="flex items-center gap-2 px-4 py-2 rounded border text-xs transition-all"
                   style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--text-secondary)', fontFamily: 'Syne', fontWeight: 600 }}

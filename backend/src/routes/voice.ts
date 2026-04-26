@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { createJob, getJob } from '../services/jobStore';
+import { createJob, getJob, updateJob } from '../services/jobStore';
 import { processJob } from '../services/mockProcessor';
-import { VoiceGenerationInput } from '../types';
+import { generateVoiceLocal, LOCAL_VOICE_MODELS, broadcastJobUpdate } from '../services/localProviders';
+import type { VoiceGenerationInput } from '../types';
 
 const router = Router();
 
@@ -16,8 +17,37 @@ router.post('/generate', async (req, res) => {
     speed: body.speed || 1.0,
     voiceId: body.voiceId || 'default',
   });
-  processJob(job.id).catch(console.error);
   res.status(202).json(job);
+
+  if (LOCAL_VOICE_MODELS.has(body.modelId)) {
+    (async () => {
+      try {
+        updateJob(job.id, { status: 'processing', progress: 10 });
+        broadcastJobUpdate('job:progress', { ...job, status: 'processing', progress: 10 });
+        const audioUrl = await generateVoiceLocal({
+          text: body.text,
+          voiceId: body.voiceId,
+          speed: body.speed,
+          emotion: body.emotion,
+        });
+        if (audioUrl) {
+          const done = updateJob(job.id, {
+            status: 'completed',
+            progress: 100,
+            completedAt: new Date().toISOString(),
+            output: { audioUrl, model: body.modelId },
+          });
+          broadcastJobUpdate('job:completed', done);
+        }
+      } catch (err) {
+        console.error('[local voice error]', err);
+        const failed = updateJob(job.id, { status: 'failed', error: String(err) });
+        broadcastJobUpdate('job:failed', failed);
+      }
+    })();
+  } else {
+    processJob(job.id).catch(console.error);
+  }
 });
 
 router.get('/jobs/:id', (req, res) => {

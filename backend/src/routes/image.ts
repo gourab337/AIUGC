@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { createJob, getJob } from '../services/jobStore';
+import { createJob, getJob, updateJob } from '../services/jobStore';
 import { processJob } from '../services/mockProcessor';
-import { ImageGenerationInput } from '../types';
+import { generateImageLocal, LOCAL_IMAGE_MODELS, broadcastJobUpdate } from '../services/localProviders';
+import type { ImageGenerationInput } from '../types';
 
 const router = Router();
 
@@ -13,12 +14,43 @@ router.post('/generate', async (req, res) => {
 
   const job = createJob('image', body.modelId, {
     ...body,
-    width: body.width || 1024,
+    width: body.width || 576,
     height: body.height || 1024,
-    steps: body.steps || 30,
+    steps: body.steps || 4,
   });
-  processJob(job.id).catch(console.error);
   res.status(202).json(job);
+
+  if (LOCAL_IMAGE_MODELS.has(body.modelId)) {
+    (async () => {
+      try {
+        updateJob(job.id, { status: 'processing', progress: 5 });
+        broadcastJobUpdate('job:progress', { ...job, status: 'processing', progress: 5 });
+        const imageUrls = await generateImageLocal({
+          prompt: body.prompt,
+          style: body.style,
+          width: body.width || 576,
+          height: body.height || 1024,
+          steps: body.steps || 20,
+          modelId: body.modelId,
+        });
+        if (imageUrls && imageUrls.length > 0) {
+          const done = updateJob(job.id, {
+            status: 'completed',
+            progress: 100,
+            completedAt: new Date().toISOString(),
+            output: { imageUrls, imageUrl: imageUrls[0], model: body.modelId },
+          });
+          broadcastJobUpdate('job:completed', done);
+        }
+      } catch (err) {
+        console.error('[local image error]', err);
+        const failed = updateJob(job.id, { status: 'failed', error: String(err) });
+        broadcastJobUpdate('job:failed', failed);
+      }
+    })();
+  } else {
+    processJob(job.id).catch(console.error);
+  }
 });
 
 router.get('/jobs/:id', (req, res) => {

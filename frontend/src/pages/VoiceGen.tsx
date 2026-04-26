@@ -62,7 +62,8 @@ export function VoiceGen() {
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [playProgress, setPlayProgress] = useState(0);
-  const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const charCount = text.length;
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -79,20 +80,28 @@ export function VoiceGen() {
     }
   }, [pendingVoiceText, setPendingVoiceText]);
 
-  // Fake playback animation
+  // Wire real audio playback
   useEffect(() => {
-    if (playing) {
-      playRef.current = setInterval(() => {
-        setPlayProgress(p => {
-          if (p >= 1) { setPlaying(false); clearInterval(playRef.current!); return 0; }
-          return p + 0.004;
-        });
-      }, 50);
-    } else {
-      if (playRef.current) clearInterval(playRef.current);
-    }
-    return () => { if (playRef.current) clearInterval(playRef.current); };
-  }, [playing]);
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onTimeUpdate = () => { if (audio.duration) setPlayProgress(audio.currentTime / audio.duration); };
+    const onLoaded = () => setAudioDuration(Math.round(audio.duration));
+    const onEnded = () => { setPlaying(false); setPlayProgress(1); };
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('loadedmetadata', onLoaded);
+    audio.addEventListener('ended', onEnded);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+    return () => {
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('loadedmetadata', onLoaded);
+      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+    };
+  }, []);
 
   const handleGenerate = async () => {
     if (!text.trim()) return toast.error('Enter text to synthesize');
@@ -110,16 +119,24 @@ export function VoiceGen() {
     }
   };
 
+  const audioUrl = latestJob?.output?.audioUrl as string | undefined;
+
   const togglePlay = () => {
-    if (!showOutput) return;
-    if (playProgress >= 1) setPlayProgress(0);
-    setPlaying(p => !p);
+    const audio = audioRef.current;
+    if (!audio || !audioUrl) return;
+    if (audio.paused) {
+      if (playProgress >= 1) audio.currentTime = 0;
+      audio.play().catch(console.error);
+    } else {
+      audio.pause();
+    }
   };
 
-  const handleSendToVideo = () => {
-    setPendingVideoAudioUrl(`[Audio from job ${latestJob?.id?.slice(0, 8)}]`);
-    navigate('/video');
-    toast.success('Voice sent to Video Gen');
+  const handleSendToImage = () => {
+    if (!audioUrl) return toast.error('No audio generated yet');
+    setPendingVideoAudioUrl(audioUrl);
+    navigate('/image');
+    toast.success('Voice sent to Image Gen');
   };
 
   const formatTime = (secs: number) => {
@@ -128,7 +145,8 @@ export function VoiceGen() {
     return `${m}:${String(s).padStart(2, '0')}`;
   };
 
-  const currentTime = showOutput ? Math.round(playProgress * estimatedDuration) : 0;
+  const displayDuration = audioDuration || estimatedDuration;
+  const currentTime = showOutput ? Math.round(playProgress * displayDuration) : 0;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -303,6 +321,9 @@ export function VoiceGen() {
                   )}
                 </div>
 
+                {/* Hidden real audio element */}
+                {audioUrl && <audio ref={audioRef} src={audioUrl} preload="metadata" />}
+
                 {/* Waveform */}
                 <div className="mb-3 px-1">
                   <WaveformDisplay playing={playing} progress={playProgress} />
@@ -317,13 +338,16 @@ export function VoiceGen() {
                     style={{ background: 'var(--border)' }}
                     onClick={e => {
                       const rect = e.currentTarget.getBoundingClientRect();
-                      setPlayProgress((e.clientX - rect.left) / rect.width);
+                      const frac = (e.clientX - rect.left) / rect.width;
+                      setPlayProgress(frac);
+                      const audio = audioRef.current;
+                      if (audio && audio.duration) audio.currentTime = frac * audio.duration;
                     }}
                   >
                     <div className="h-full rounded-full" style={{ width: `${playProgress * 100}%`, background: '#a78bfa' }} />
                   </div>
                   <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'var(--text-muted)', width: 32 }}>
-                    {formatTime(estimatedDuration || 0)}
+                    {formatTime(displayDuration || 0)}
                   </span>
                 </div>
 
@@ -348,23 +372,25 @@ export function VoiceGen() {
 
               {/* Actions */}
               <div className="flex gap-2">
-                <button onClick={() => toast('Download available with real model')}
+                <a
+                  href={audioUrl}
+                  download="voice.wav"
                   className="flex items-center gap-2 px-4 py-2 rounded border text-xs transition-all"
-                  style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--text-secondary)', fontFamily: 'Syne', fontWeight: 600 }}
+                  style={{ background: 'var(--bg-elevated)', borderColor: audioUrl ? 'var(--border)' : 'transparent', color: audioUrl ? 'var(--text-secondary)' : 'var(--text-muted)', fontFamily: 'Syne', fontWeight: 600, pointerEvents: audioUrl ? 'auto' : 'none', textDecoration: 'none' }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-bright)')}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                 >
                   <Download size={12} />
-                  Download MP3
-                </button>
-                <button onClick={handleSendToVideo}
+                  Download WAV
+                </a>
+                <button onClick={handleSendToImage}
                   className="flex items-center gap-2 px-4 py-2 rounded border text-xs transition-all"
                   style={{ background: 'rgba(52,211,153,0.08)', borderColor: '#34d399', color: '#34d399', fontFamily: 'Syne', fontWeight: 600 }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(52,211,153,0.15)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'rgba(52,211,153,0.08)')}
                 >
                   <ArrowRight size={12} />
-                  Send to Video Gen
+                  Send to Image Gen
                 </button>
               </div>
 

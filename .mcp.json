@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ugcc-studio": {
+      "command": "npx",
+      "args": ["tsx", "/Users/gourab/Desktop/AIUGC/mcp/server.ts"],
+      "env": {
+        "UGCC_API_URL": "http://localhost:3001"
+      }
+    }
+  }
+}

@@ -25,7 +25,7 @@ export function Dashboard() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title="AI UGC Studio" subtitle="marketing content pipeline" />
+      <Header title="AI UGC Studio" subtitle="marketing content pipeline" branded />
 
       <div className="flex-1 overflow-y-auto p-6" style={{ background: 'var(--bg-base)' }}>
         {/* Hero */}

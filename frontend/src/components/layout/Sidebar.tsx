@@ -1,8 +1,11 @@
-import { FileText, Image, Mic, Video, LayoutDashboard, Activity } from 'lucide-react';
+import { FileText, Image, Mic, Video, LayoutDashboard, Activity, Layers } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useStudioStore } from '../../store/studio';
+import { ClaudeLogo } from '../ui/ClaudeLogo';
 
 const NAV = [
   { path: '/', icon: LayoutDashboard, label: 'Studio', key: 'dashboard' },
+  { path: '/projects', icon: Layers, label: 'Projects', key: 'projects' },
   { path: '/script', icon: FileText, label: 'Script', key: 'script' },
   { path: '/image', icon: Image, label: 'Image', key: 'image' },
   { path: '/voice', icon: Mic, label: 'Voice', key: 'voice' },
@@ -14,6 +17,8 @@ const STEP_ORDER = ['script', 'image', 'voice', 'video'];
 export function Sidebar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { activeProjectId, projects } = useStudioStore();
+  const activeProject = projects.find(p => p.id === activeProjectId);
 
   return (
     <aside
@@ -27,14 +32,7 @@ export function Sidebar() {
     >
       {/* Logo mark */}
       <div className="flex items-center justify-center" style={{ height: 56, borderBottom: '1px solid var(--border)' }}>
-        <div
-          className="flex items-center justify-center rounded"
-          style={{ width: 32, height: 32, background: 'var(--amber)', position: 'relative' }}
-        >
-          <span style={{ fontFamily: 'Instrument Serif', fontStyle: 'italic', color: '#070708', fontSize: 18, fontWeight: 400, lineHeight: 1 }}>
-            u
-          </span>
-        </div>
+        <ClaudeLogo size={26} />
       </div>
 
       {/* Nav */}
@@ -74,6 +72,22 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Active project indicator */}
+      {activeProject && (
+        <div
+          className="mx-2 mb-2 rounded px-2 py-2"
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+          title={`Active: ${activeProject.name}`}
+        >
+          <div style={{ fontSize: 7, fontFamily: 'JetBrains Mono', color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: 2 }}>
+            ACTIVE
+          </div>
+          <div style={{ fontSize: 9, fontFamily: 'Syne', fontWeight: 700, color: 'var(--amber)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 48 }}>
+            {activeProject.name}
+          </div>
+        </div>
+      )}
 
       {/* Bottom indicator */}
       <div className="flex items-center justify-center pb-4">

@@ -1,4 +1,26 @@
 export type ModelProvider = 'local' | 'openai' | 'anthropic' | 'google' | 'replicate' | 'stability' | 'elevenlabs' | 'runway' | 'blackforestlabs' | 'midjourney' | 'fishaudio' | 'inworld' | 'xai' | 'bytedance' | 'mistral' | 'ideogram';
+
+export type UGCNiche = 'luxury-aesthetic' | 'crypto-hype' | 'ai-podcast' | 'trader-lifestyle';
+
+export interface ProjectAsset {
+  id: string;
+  jobId: string;
+  type: 'script' | 'image' | 'voice' | 'video';
+  experimentName?: string;
+  variant?: string;
+  createdAt: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  client: string;
+  niche?: UGCNiche;
+  description?: string;
+  assets: ProjectAsset[];
+  createdAt: string;
+  updatedAt: string;
+}
 export type ModelQuality = 'highest' | 'very-high' | 'high';
 
 export interface AIModel {

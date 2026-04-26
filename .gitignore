@@ -1,6 +1,38 @@
+# Dependencies
 node_modules/
 dist/
+
+# Env
 .env
+.env.*
+!.env.example
+
+# Logs
 *.log
+
+# Uploads / generated output
 uploads/*
 !uploads/.gitkeep
+public/generated/
+/tmp/ugcc_generated/
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+inference/.venv/
+
+# Model weights & binaries (large files — stored outside repo)
+inference/models/*.onnx
+inference/models/*.bin
+inference/models/*.safetensors
+inference/models/*.ckpt
+inference/models/*.pt
+inference/models/*.pth
+inference/models/*.gguf
+inference/models/*.ggml
+
+# HuggingFace cache (lives in ~/.cache/huggingface, not the repo)
+.huggingface/

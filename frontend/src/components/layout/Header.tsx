@@ -5,9 +5,10 @@ interface Props {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  branded?: boolean;
 }
 
-export function Header({ title, subtitle, actions }: Props) {
+export function Header({ title, subtitle, actions, branded }: Props) {
   const wsConnected = useStudioStore(s => s.wsConnected);
 
   return (
@@ -17,9 +18,18 @@ export function Header({ title, subtitle, actions }: Props) {
     >
       <div className="flex items-center gap-3">
         <div>
-          <h1 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1 }}>
-            {title}
-          </h1>
+          {branded ? (
+            <h1 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 15, lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: 0 }}>
+              <span style={{ color: 'var(--text-primary)' }}>UG</span>
+              <span style={{ color: 'var(--amber)' }}>CC</span>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6, marginRight: 6 }}>:</span>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{title}</span>
+            </h1>
+          ) : (
+            <h1 style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', lineHeight: 1 }}>
+              {title}
+            </h1>
+          )}
           {subtitle && (
             <p style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
               {subtitle}
@@ -34,7 +44,7 @@ export function Header({ title, subtitle, actions }: Props) {
           {wsConnected ? (
             <Wifi size={12} style={{ color: 'var(--green)' }} />
           ) : (
-            <WifiOff size={12} style={{ color: 'var(--red)' }} className="pulse-amber" />
+            <WifiOff size={12} style={{ color: 'var(--red)' }} />
           )}
           <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: wsConnected ? 'var(--green)' : 'var(--red)' }}>
             {wsConnected ? 'connected' : 'offline'}

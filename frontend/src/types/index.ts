@@ -28,6 +28,28 @@ export interface GenerationJob {
   error?: string;
 }
 
+export type UGCNiche = 'luxury-aesthetic' | 'crypto-hype' | 'ai-podcast' | 'trader-lifestyle';
+
+export interface ProjectAsset {
+  id: string;
+  jobId: string;
+  type: WorkflowStep;
+  experimentName?: string;
+  variant?: string;
+  createdAt: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  client: string;
+  niche?: UGCNiche;
+  description?: string;
+  assets: ProjectAsset[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface WSMessage {
   type: 'connected' | 'job:progress' | 'job:completed' | 'job:failed';
   job?: GenerationJob;

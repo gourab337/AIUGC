@@ -6,6 +6,7 @@ import { ScriptGen } from './pages/ScriptGen';
 import { ImageGen } from './pages/ImageGen';
 import { VoiceGen } from './pages/VoiceGen';
 import { VideoGen } from './pages/VideoGen';
+import { Projects } from './pages/Projects';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useModels } from './hooks/useModels';
 import { jobsApi } from './api/client';
@@ -25,6 +26,7 @@ function AppInner() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
+          <Route path="projects" element={<Projects />} />
           <Route path="script" element={<ScriptGen />} />
           <Route path="image" element={<ImageGen />} />
           <Route path="voice" element={<VoiceGen />} />

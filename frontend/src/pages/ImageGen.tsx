@@ -76,8 +76,8 @@ export function ImageGen() {
     }
   };
 
-  const handleSendToVideo = (idx: number) => {
-    setPendingVideoImageUrl(`[Image ${idx + 1} from job ${latestJob?.id?.slice(0, 8)}]`);
+  const handleSendToVideo = (url: string) => {
+    setPendingVideoImageUrl(url);
     navigate('/video');
     toast.success('Image sent to Video Gen');
   };
@@ -237,76 +237,67 @@ export function ImageGen() {
               </div>
 
               {/* Image grid */}
-              <div className={`grid gap-3 ${isPortrait ? 'grid-cols-2' : 'grid-cols-2'}`}>
-                {PLACEHOLDER_GRADIENTS.map((grad, idx) => (
-                  <div key={idx} className="group relative rounded overflow-hidden border transition-all cursor-pointer"
-                    style={{ borderColor: expanded === idx ? 'var(--cyan)' : 'var(--border)', aspectRatio: isPortrait ? '3/4' : '4/3' }}
-                    onClick={() => setExpanded(expanded === idx ? null : idx)}
-                  >
-                    {/* Gradient placeholder */}
-                    <div className="absolute inset-0" style={{ background: grad }} />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                      <div style={{ width: 48, height: 48, border: '1px solid rgba(255,255,255,0.08)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <ImageIcon size={20} style={{ color: 'rgba(255,255,255,0.15)' }} />
+              {(() => {
+                const imageUrls = (latestJob?.output?.imageUrls as string[] | undefined)
+                  ?? (latestJob?.output?.imageUrl ? [latestJob.output.imageUrl as string] : []);
+                const cards = imageUrls.length > 0 ? imageUrls : PLACEHOLDER_GRADIENTS.map(() => null);
+                return (
+                  <div className={`grid gap-3 ${isPortrait ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                    {cards.map((imageUrl, idx) => (
+                      <div key={idx} className="group relative rounded overflow-hidden border transition-all cursor-pointer"
+                        style={{ borderColor: expanded === idx ? 'var(--cyan)' : 'var(--border)', aspectRatio: isPortrait ? '3/4' : '4/3' }}
+                        onClick={() => setExpanded(expanded === idx ? null : idx)}
+                      >
+                        {imageUrl
+                          ? <img src={imageUrl} alt={`Generated ${idx + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                          : <>
+                              <div className="absolute inset-0" style={{ background: PLACEHOLDER_GRADIENTS[idx % PLACEHOLDER_GRADIENTS.length] }} />
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                                <div style={{ width: 48, height: 48, border: '1px solid rgba(255,255,255,0.08)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <ImageIcon size={20} style={{ color: 'rgba(255,255,255,0.15)' }} />
+                                </div>
+                                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                  {placeholders[idx]}
+                                </span>
+                              </div>
+                            </>
+                        }
+
+                        {/* Hover overlay */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
+                          style={{ background: 'rgba(0,0,0,0.6)' }}>
+                          {imageUrl && (
+                            <a href={imageUrl} download={`image_${idx + 1}.png`} onClick={e => e.stopPropagation()}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs"
+                              style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', fontFamily: 'Syne', border: '1px solid var(--border)', textDecoration: 'none' }}>
+                              <Download size={10} />
+                              Save
+                            </a>
+                          )}
+                          {imageUrl && (
+                            <button onClick={(e) => { e.stopPropagation(); handleSendToVideo(imageUrl); }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs"
+                              style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', fontFamily: 'Syne', border: '1px solid rgba(52,211,153,0.3)' }}>
+                              <ArrowRight size={10} />
+                              → Video
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Expand / variant label */}
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ZoomIn size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
+                        </div>
+                        <div className="absolute bottom-2 left-2">
+                          <span style={{ fontFamily: 'JetBrains Mono', fontSize: 8, color: 'rgba(255,255,255,0.3)', background: 'rgba(0,0,0,0.4)', padding: '2px 5px', borderRadius: 3 }}>
+                            v{idx + 1}
+                          </span>
+                        </div>
                       </div>
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                        {placeholders[idx]}
-                      </span>
-                    </div>
-
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
-                      style={{ background: 'rgba(0,0,0,0.6)' }}>
-                      <button onClick={(e) => { e.stopPropagation(); toast('Download available with real model'); }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs"
-                        style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', fontFamily: 'Syne', border: '1px solid var(--border)' }}>
-                        <Download size={10} />
-                        Save
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleSendToVideo(idx); }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs"
-                        style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', fontFamily: 'Syne', border: '1px solid rgba(52,211,153,0.3)' }}>
-                        <ArrowRight size={10} />
-                        → Video
-                      </button>
-                    </div>
-
-                    {/* Expand icon */}
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ZoomIn size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
-                    </div>
-
-                    {/* Variant label */}
-                    <div className="absolute bottom-2 left-2">
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 8, color: 'rgba(255,255,255,0.3)', background: 'rgba(0,0,0,0.4)', padding: '2px 5px', borderRadius: 3 }}>
-                        v{idx + 1}
-                      </span>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-
-              {/* Bulk actions */}
-              <div className="flex gap-2 mt-4">
-                <button onClick={() => toast('Download all — available with real model')}
-                  className="flex items-center gap-2 px-4 py-2 rounded border text-xs transition-all"
-                  style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--text-secondary)', fontFamily: 'Syne', fontWeight: 600 }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-bright)')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-                >
-                  <Download size={12} />
-                  Download all
-                </button>
-                <button onClick={() => handleSendToVideo(0)}
-                  className="flex items-center gap-2 px-4 py-2 rounded border text-xs transition-all"
-                  style={{ background: 'rgba(52,211,153,0.08)', borderColor: '#34d399', color: '#34d399', fontFamily: 'Syne', fontWeight: 600 }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(52,211,153,0.15)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(52,211,153,0.08)')}
-                >
-                  <ArrowRight size={12} />
-                  Best image → Video Gen
-                </button>
-              </div>
+                );
+              })()}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3">
